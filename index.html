@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Экстернализация — Ритуал сжигания письма</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-table: #0c0a09;
+            --paper-bg: #f4efe6;
+            --paper-ink: #1e242b;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-table);
+            background-image: 
+                radial-gradient(circle at 50% 45%, rgba(45, 34, 26, 0.45) 0%, rgba(12, 10, 9, 0.98) 75%),
+                repeating-linear-gradient(45deg, rgba(255,255,255,0.01) 0px, rgba(255,255,255,0.01) 2px, transparent 2px, transparent 4px);
+            color: #e7e5e4;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+        }
+
+        .font-serif-literary {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+        }
+
+        .font-handwriting {
+            font-family: 'Caveat', cursive;
+        }
+
+        /* Custom Paper Styling in Write Mode */
+        .paper-sheet {
+            background-color: var(--paper-bg);
+            background-image: 
+                linear-gradient(rgba(180, 165, 145, 0.18) 1px, transparent 1px),
+                radial-gradient(circle at 20% 30%, rgba(255, 252, 245, 0.6) 0%, transparent 70%);
+            background-size: 100% 34px, 100% 100%;
+            background-position: 0 42px, 0 0;
+            box-shadow: 
+                0 25px 60px -15px rgba(0, 0, 0, 0.85),
+                0 0 1px 1px rgba(120, 100, 80, 0.2),
+                inset 0 0 50px rgba(168, 142, 110, 0.22);
+            color: var(--paper-ink);
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+        }
+
+        /* Realistic ink strikethrough */
+        .word-token {
+            display: inline;
+            position: relative;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .word-token:hover {
+            background-color: rgba(180, 83, 9, 0.08);
+            border-radius: 2px;
+        }
+
+        .word-struck {
+            color: rgba(30, 36, 43, 0.55);
+            position: relative;
+        }
+
+        .word-struck::after {
+            content: '';
+            position: absolute;
+            left: -3%;
+            right: -3%;
+            top: 48%;
+            height: 2.5px;
+            background: #171c22;
+            border-radius: 4px;
+            transform: rotate(-2.2deg);
+            box-shadow: 0 1px 0 rgba(23, 28, 34, 0.45);
+            pointer-events: none;
+        }
+
+        .word-struck::before {
+            content: '';
+            position: absolute;
+            left: -1%;
+            right: -2%;
+            top: 54%;
+            height: 1.5px;
+            background: rgba(23, 28, 34, 0.75);
+            transform: rotate(1.1deg);
+            pointer-events: none;
+        }
+
+        /* Blinking Pen Caret */
+        .ink-caret {
+            display: inline-block;
+            width: 2px;
+            height: 1.25em;
+            background-color: #b45309;
+            vertical-align: text-bottom;
+            margin-left: 1px;
+            animation: blink 1.1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        /* Custom Scrollbar for paper */
+        .paper-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .paper-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .paper-scroll::-webkit-scrollbar-thumb {
+            background: rgba(120, 105, 90, 0.3);
+            border-radius: 9999px;
+        }
+
+        /* Hide default cursor when lighter is active */
+        .cursor-lighter-active {
+            cursor: none !important;
+        }
+        .cursor-grab-paper {
+            cursor: grab !important;
+        }
+        .cursor-grabbing-paper {
+            cursor: grabbing !important;
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-between relative select-none">
+
+    <!-- Ambient Warm Glow Overlay when burning -->
+    <div id="ambientFireGlow" class="fixed inset-0 pointer-events-none opacity-0 transition-opacity duration-700 z-0"
+         style="background: radial-gradient(circle at 50% 50%, rgba(234, 88, 12, 0.16) 0%, rgba(154, 52, 18, 0.05) 45%, transparent 75%);">
+    </div>
+
+    <!-- TOP NAVIGATION & STIMULUS CONTROL BAR -->
+    <header class="relative z-30 w-full px-4 sm:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3 border-b border-stone-800/70 bg-stone-950/70 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div class="w-2.5 h-2.5 rounded-full bg-amber-500/80 shadow-[0_0_10px_rgba(245,158,11,0.7)]" id="statusDot"></div>
+            <div>
+                <h1 class="text-sm sm:text-base font-medium tracking-wide text-stone-200 flex items-center gap-2">
+                    <span>Протокол де Шазера</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-stone-800 text-stone-400 border border-stone-700/60" id="phaseBadge">Фаза 1: Выгрузка</span>
+                </h1>
+                <p class="text-[11px] text-stone-400 hidden sm:block">Никакие данные не сохраняются и не отправляются в сеть. Всё исчезнет вместе с пеплом.</p>
+            </div>
+        </div>
+
+        <!-- Timer & Controls -->
+        <div class="flex items-center gap-2 sm:gap-4">
+            <!-- Stimulus Timer -->
+            <div class="flex items-center gap-2 bg-stone-900/90 border border-stone-800 px-3 py-1.5 rounded-lg" title="Стимульный контроль: 15 минут на выгрузку мыслей">
+                <svg class="w-4 h-4 text-amber-500/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span id="timerDisplay" class="font-mono text-sm sm:text-base font-medium text-stone-200 tracking-wider">15:00</span>
+                <button id="timerToggleBtn" class="text-xs text-stone-400 hover:text-stone-200 px-1.5 py-0.5 rounded bg-stone-800/70 hover:bg-stone-700/70 transition" title="Пауза / Продолжить таймер">
+                    Пауза
+                </button>
+            </div>
+
+            <!-- Sound Toggle -->
+            <button id="soundToggleBtn" class="p-2 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 hover:text-amber-400 hover:border-stone-700 transition flex items-center gap-1.5 text-xs" title="Звуки пера и живого огня (Web Audio)">
+                <svg id="soundOnIcon" class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                </svg>
+                <svg id="soundOffIcon" class="w-4 h-4 text-stone-500 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+                </svg>
+                <span class="hidden md:inline" id="soundStatusText">Звук вкл</span>
+            </button>
+
+            <!-- Info / Science Modal Trigger -->
+            <button id="theoryModalBtn" class="p-2 rounded-lg bg-stone-900 border border-stone-800 text-stone-400 hover:text-stone-200 hover:border-stone-700 transition text-xs flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="hidden lg:inline">Как это работает</span>
+            </button>
+
+            <!-- Primary Transition CTA -->
+            <button id="goToBurnBtn" class="px-3.5 py-2 rounded-lg bg-gradient-to-r from-amber-700 to-orange-700 hover:from-amber-600 hover:to-orange-600 text-stone-100 font-medium text-xs sm:text-sm shadow-lg shadow-orange-950/50 border border-amber-500/30 transition flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/>
+                </svg>
+                <span>Взять зажигалку</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden p-3 sm:p-6 z-10">
+
+        <!-- PHASE 1: WRITING PAPER VIEW -->
+        <div id="writingContainer" class="relative w-full max-w-[660px] h-[78vh] max-h-[760px] flex flex-col">
+            <!-- Cognitive Friction Helper Banner -->
+            <div class="mb-2.5 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-stone-400">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-stone-900 border border-stone-800 text-amber-500/90 font-mono text-[11px]">Backspace = Вычеркнуть</span>
+                    <span>Стирать буквы нельзя. Ошибки только перечеркиваются пером.</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="strikeLastWordBtn" class="text-stone-300 hover:text-amber-400 underline decoration-stone-600 underline-offset-4 transition">
+                        Вычеркнуть слово
+                    </button>
+                    <button id="loadSampleBtn" class="text-stone-500 hover:text-stone-300 transition" title="Заполнить примером неотправленного письма для теста горения">
+                        Пример текста
+                    </button>
+                </div>
+            </div>
+
+            <!-- The Physical Paper Sheet -->
+            <div id="paperDomElement" class="paper-sheet relative flex-1 w-full rounded-[3px] p-6 sm:p-10 overflow-y-auto paper-scroll cursor-text" onclick="focusHiddenInput()">
+                <!-- Subtle Date & Header on Paper -->
+                <div class="flex justify-between items-center border-b border-stone-400/40 pb-2 mb-4 text-xs font-serif-literary italic text-stone-600">
+                    <span id="paperDateLabel">Лист экстернализации</span>
+                    <span>Не для отправки • Подлежит сожжению</span>
+                </div>
+
+                <!-- Rendered Words Stream -->
+                <div id="paperWordsArea" class="font-handwriting text-2xl sm:text-[27px] leading-[34px] tracking-wide text-stone-900 break-words whitespace-pre-wrap min-h-[82%]"></div>
+
+                <!-- Empty State Placeholder -->
+                <div id="paperPlaceholder" class="pointer-events-none absolute top-24 left-6 right-6 sm:left-10 sm:right-10 font-handwriting text-2xl sm:text-[26px] leading-[34px] text-stone-500/55">
+                    Начните выписывать сюда всё, что крутится в голове и не даёт покоя...<br><br>
+                    Не подбирайте красивых выражений. Клавиша Backspace здесь не удаляет прошлое, а лишь перечёркивает последнее слово чернилами — как на настоящей бумаге. Вы также можете дважды кликнуть по любому слову, чтобы зачеркнуть его.
+                </div>
+
+                <!-- Hidden Input to capture mobile & desktop keyboard seamlessly -->
+                <textarea id="hiddenTypingInput" 
+                    class="fixed -top-96 left-0 opacity-0 w-1 h-1 pointer-events-none" 
+                    autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"></textarea>
+            </div>
+        </div>
+
+        <!-- PHASE 2: BURNING RITUAL STAGE (CANVAS + 3D TILT + LIGHTER) -->
+        <div id="burningStage" class="hidden relative w-full h-full flex flex-col items-center justify-center">
+            
+            <!-- Interactive Paper Canvas Container -->
+            <div id="burnViewport" class="relative w-full h-full flex items-center justify-center overflow-hidden">
+                <!-- Main High-Res Simulation Canvas -->
+                <canvas id="burnCanvas" class="max-w-full max-h-full"></canvas>
+            </div>
+
+            <!-- Floating Bottom HUD for Burning & Tilting -->
+            <div id="burnHud" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 w-[95%] max-w-3xl bg-stone-950/90 border border-stone-800/90 backdrop-blur-md rounded-2xl px-4 py-3 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                
+                <!-- Tool Mode Switcher (Lighter vs Tilt Hand) -->
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                    <div class="inline-flex p-1 rounded-xl bg-stone-900 border border-stone-800">
+                        <button id="modeLighterBtn" class="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-amber-600/20 text-amber-300 border border-amber-500/40 transition">
+                            <span>🔥 Зажигалка (ЛКМ)</span>
+                        </button>
+                        <button id="modeTiltBtn" class="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-stone-400 hover:text-stone-200 transition">
+                            <span>✋ Наклон листа (ПКМ)</span>
+                        </button>
+                    </div>
+
+                    <!-- Burn Progress Pill -->
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-900/90 border border-stone-800 text-xs">
+                        <span class="text-stone-400">Пепел:</span>
+                        <span id="burnPercentText" class="font-mono font-semibold text-amber-400">0%</span>
+                    </div>
+                </div>
+
+                <!-- Paper Angle / Gravity Vector Control -->
+                <div class="flex items-center gap-3 w-full sm:w-auto justify-center">
+                    <div class="flex items-center gap-2 text-xs text-stone-300 bg-stone-900/80 border border-stone-800 px-3 py-1.5 rounded-xl w-full sm:w-auto">
+                        <span class="text-stone-400 whitespace-nowrap" title="Огонь всегда стремится вверх против гравитации. Поверните лист, чтобы направить пламя на нетронутые участки.">Угол листа:</span>
+                        <input id="tiltAngleSlider" type="range" min="-65" max="65" value="0" class="w-28 sm:w-32 accent-amber-500 cursor-pointer">
+                        <span id="tiltAngleLabel" class="font-mono text-[11px] text-amber-400 w-9 text-right">0°</span>
+                        <button id="resetTiltBtn" class="text-[11px] text-stone-400 hover:text-stone-200 px-1.5 py-0.5 rounded bg-stone-800" title="Выровнять лист">0°</button>
+                    </div>
+                </div>
+
+                <!-- Instruction Hint -->
+                <div id="burnHintText" class="text-[11px] text-stone-400 text-center sm:text-right leading-tight hidden lg:block max-w-[210px]">
+                    Коснитесь пламенем любого места листа, чтобы <strong class="text-amber-300">мгновенно поджечь</strong> его. Колёсико мыши поворачивает лист.
+                </div>
+            </div>
+        </div>
+
+        <!-- PHASE 3: SILENCE & CLOSURE OVERLAY -->
+        <div id="closureOverlay" class="hidden fixed inset-0 z-40 bg-stone-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center transition-opacity duration-1000 opacity-0">
+            <div class="max-w-lg mx-auto space-y-6">
+                <div class="w-12 h-12 rounded-full border border-stone-800 bg-stone-900/60 flex items-center justify-center mx-auto text-amber-500/60">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <h2 class="font-serif-literary text-3xl sm:text-4xl text-stone-200 font-normal tracking-wide">
+                    Письмо превратилось в пепел
+                </h2>
+                <p class="text-stone-400 text-sm sm:text-base leading-relaxed font-light">
+                    Экстернализация завершена. Выписанные мысли потеряли материальный носитель и больше не требуют вашего удержания в оперативной памяти. 
+                    Если руминация вернётся в течение дня — спокойно скажите себе: <br>
+                    <span class="text-stone-200 italic">«Я уже выделил для этого время и вернусь к практике только в следующий сеанс».</span>
+                </p>
+                <div class="pt-4 flex items-center justify-center gap-4">
+                    <button id="newSessionBtn" class="px-5 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-700/80 text-sm transition">
+                        Чистый лист (новая сессия)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- CUSTOM LIGHTER CURSOR OVERLAY (Followed in Burn Mode) -->
+    <canvas id="lighterCursorCanvas" class="fixed inset-0 pointer-events-none z-50 hidden"></canvas>
+
+    <!-- THEORY & NEUROSCIENCE MODAL -->
+    <div id="theoryModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 sm:p-8 text-stone-300 shadow-2xl space-y-5">
+            <div class="flex items-start justify-between gap-4 border-b border-stone-800 pb-4">
+                <div>
+                    <h3 class="text-lg sm:text-xl font-medium text-stone-100">Нейробиология ритуала Стива де Шазера</h3>
+                    <p class="text-xs text-amber-500/90 mt-0.5">Ориентированная на решение краткосрочная терапия (ОРКТ)</p>
+                </div>
+                <button id="closeTheoryModalBtn" class="p-1.5 rounded-lg bg-stone-800 text-stone-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs sm:text-sm leading-relaxed text-stone-300">
+                <div class="p-3.5 rounded-xl bg-stone-950/70 border border-stone-800/80">
+                    <h4 class="font-medium text-amber-400 mb-1">1. Когнитивное трение (Отказ от Backspace)</h4>
+                    <p class="text-stone-400">
+                        Исследования Одри ван дер Меер (NTNU) показывают, что быстрый набор на клавиатуре оставляет мозг в режиме поверхностных автоматизмов. Когда мы запрещаем стирать буквы и заменяем <code>Backspace</code> на физическое вычёркивание слова целиком, отключается гиперконтроль «внутреннего редактора» и замедляется темп руминации (Default Mode Network).
+                    </p>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-stone-950/70 border border-stone-800/80">
+                    <h4 class="font-medium text-amber-400 mb-1">2. Материальность уничтожения (Эксперимент Бриньоля и Петти, 2012)</h4>
+                    <p class="text-stone-400">
+                        Простое нажатие кнопки «Удалить» в заметках телефона не даёт мозгу чувства завершённости (closure). Чтобы сработало «воплощённое познание» (Embodied Cognition), мозг должен наблюдать необратимый физический процесс: прогрев края бумаги, медленное расползание тлеющего угля в течение 30–40 секунд, наклон листа для поддержания тяги и распад текста в пепел.
+                    </p>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-stone-950/70 border border-stone-800/80">
+                    <h4 class="font-medium text-amber-400 mb-1">3. Стимульный контроль и парадоксальное предписание</h4>
+                    <p class="text-stone-400">
+                        Секрет техники де Шазера — превратить спонтанную мучительную мысленную жвачку в локализованную, ограниченную 15 минутами рутину. Когда время истекает, вы обязаны сжечь лист и отложить размышления до следующего назначенного окна.
+                    </p>
+                </div>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button id="closeTheoryBottomBtn" class="px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-600 text-white text-xs sm:text-sm font-medium transition">
+                    Понятно, вернуться к листу
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /********************************************************************
+         * 1. PROCEDURAL WEB AUDIO ENGINE (Pen, Strikethrough, Zippo, Fire)
+         ********************************************************************/
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+                this.fireGain = null;
+                this.fireFilter = null;
+                this.isFireRunning = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Subtle fountain pen / typewriter tactile tap on paper
+            playPenTap() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+
+                // Short filtered noise burst + soft low thud
+                const bufferSize = this.ctx.sampleRate * 0.025;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1400 + Math.random() * 500, now);
+                filter.Q.setValueAtTime(2.5, now);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.024);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(now);
+            }
+
+            // Realistic ink scratch sound when crossing out a word with Backspace
+            playInkScratch() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const duration = 0.16;
+                const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+
+                for (let i = 0; i < bufferSize; i++) {
+                    const t = i / bufferSize;
+                    const env = Math.sin(t * Math.PI) * (0.7 + 0.3 * Math.sin(t * 45));
+                    data[i] = (Math.random() * 2 - 1) * env;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(2200, now);
+                filter.frequency.linearRampToValueAtTime(3200, now + duration);
+                filter.Q.setValueAtTime(1.8, now);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(now);
+            }
+
+            // Zippo metallic click & flint spark
+            playLighterClick() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+
+                // Metallic ping
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(3100, now);
+                osc.frequency.exponentialRampToValueAtTime(980, now + 0.045);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.055);
+
+                // Flint whoosh
+                const bufLen = Math.floor(this.ctx.sampleRate * 0.14);
+                const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+                const ch = buf.getChannelData(0);
+                for (let i = 0; i < bufLen; i++) {
+                    ch[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.45));
+                }
+                const src = this.ctx.createBufferSource();
+                src.buffer = buf;
+                const flt = this.ctx.createBiquadFilter();
+                flt.type = 'lowpass';
+                flt.frequency.setValueAtTime(1800, now + 0.02);
+                const g2 = this.ctx.createGain();
+                g2.gain.setValueAtTime(0.16, now + 0.02);
+                g2.gain.exponentialRampToValueAtTime(0.005, now + 0.15);
+
+                src.connect(flt);
+                flt.connect(g2);
+                g2.connect(this.ctx.destination);
+                src.start(now + 0.02);
+            }
+
+            // Continuous dynamic fire sound loop + random crackles
+            startFireLoop() {
+                if (this.isFireRunning) return;
+                this.init();
+                this.isFireRunning = true;
+
+                // Create 3-second looping brown/pink noise for warm flame rumble
+                const bufferSize = this.ctx.sampleRate * 3;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                let lastOut = 0.0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    output[i] = (lastOut + (0.04 * white)) / 1.04;
+                    lastOut = output[i];
+                    output[i] *= 3.2;
+                }
+
+                this.fireSource = this.ctx.createBufferSource();
+                this.fireSource.buffer = buffer;
+                this.fireSource.loop = true;
+
+                this.fireFilter = this.ctx.createBiquadFilter();
+                this.fireFilter.type = 'lowpass';
+                this.fireFilter.frequency.value = 340;
+
+                this.fireGain = this.ctx.createGain();
+                this.fireGain.gain.value = 0.0;
+
+                this.fireSource.connect(this.fireFilter);
+                this.fireFilter.connect(this.fireGain);
+                this.fireGain.connect(this.ctx.destination);
+                this.fireSource.start();
+            }
+
+            updateFireIntensity(activeFlameRatio, isHoldingLighter) {
+                if (!this.ctx || !this.isFireRunning) return;
+                const now = this.ctx.currentTime;
+                const targetLevel = this.enabled
+                    ? Math.min(0.55, activeFlameRatio * 0.65 + (isHoldingLighter ? 0.07 : 0.01))
+                    : 0;
+
+                this.fireGain.gain.setTargetAtTime(targetLevel, now, 0.1);
+                this.fireFilter.frequency.setTargetAtTime(260 + activeFlameRatio * 550, now, 0.12);
+
+                // Trigger stochastic paper crackle pops
+                if (this.enabled && (activeFlameRatio > 0.01 || isHoldingLighter)) {
+                    const crackleChance = Math.min(0.45, activeFlameRatio * 0.8 + (isHoldingLighter ? 0.08 : 0));
+                    if (Math.random() < crackleChance) {
+                        this.playCracklePop(activeFlameRatio);
+                    }
+                }
+            }
+
+            playCracklePop(intensity) {
+                const now = this.ctx.currentTime;
+                const dur = 0.012 + Math.random() * 0.02;
+                const len = Math.floor(this.ctx.sampleRate * dur);
+                const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+                const d = buf.getChannelData(0);
+                for (let i = 0; i < len; i++) {
+                    d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.25));
+                }
+                const src = this.ctx.createBufferSource();
+                src.buffer = buf;
+
+                const bp = this.ctx.createBiquadFilter();
+                bp.type = 'bandpass';
+                bp.frequency.value = 2400 + Math.random() * 3200;
+                bp.Q.value = 3.0;
+
+                const g = this.ctx.createGain();
+                g.gain.value = (0.04 + Math.random() * 0.12) * Math.min(1, intensity * 3 + 0.3);
+
+                src.connect(bp);
+                bp.connect(g);
+                g.connect(this.ctx.destination);
+                src.start(now);
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        /********************************************************************
+         * 2. COGNITIVE FRICTION WRITING ENGINE (No Backspace, Strikethrough)
+         ********************************************************************/
+        // Data model: array of tokens { text: string, struck: boolean, isNewline: boolean }
+        let tokens = [];
+        let currentWordBuffer = '';
+        let currentPhase = 'write'; // 'write' | 'burn' | 'closure'
+
+        const paperWordsArea = document.getElementById('paperWordsArea');
+        const paperPlaceholder = document.getElementById('paperPlaceholder');
+        const hiddenInput = document.getElementById('hiddenTypingInput');
+        const paperDateLabel = document.getElementById('paperDateLabel');
+
+        // Format Russian Date on paper header
+        const nowDate = new Date();
+        paperDateLabel.textContent = nowDate.toLocaleDateString('ru-RU', {
+            day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+        });
+
+        function focusHiddenInput() {
+            if (currentPhase !== 'write') return;
+            hiddenInput.focus();
+        }
+
+        function hasAnyContent() {
+            return tokens.length > 0 || currentWordBuffer.length > 0;
+        }
+
+        function renderPaperText() {
+            paperPlaceholder.style.display = hasAnyContent() ? 'none' : 'block';
+            paperWordsArea.innerHTML = '';
+
+            tokens.forEach((tok, idx) => {
+                if (tok.isNewline) {
+                    paperWordsArea.appendChild(document.createElement('br'));
+                } else {
+                    const span = document.createElement('span');
+                    span.className = 'word-token' + (tok.struck ? ' word-struck' : '');
+                    span.textContent = tok.text;
+                    span.title = tok.struck ? 'Слово вычеркнуто' : 'Двойной клик — вычеркнуть слово';
+                    span.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        if (currentPhase !== 'write') return;
+                        tok.struck = !tok.struck;
+                        sound.playInkScratch();
+                        renderPaperText();
+                    });
+                    paperWordsArea.appendChild(span);
+                    paperWordsArea.appendChild(document.createTextNode(' '));
+                }
+            });
+
+            if (currentWordBuffer.length > 0) {
+                const activeSpan = document.createElement('span');
+                activeSpan.className = 'word-token';
+                activeSpan.textContent = currentWordBuffer;
+                paperWordsArea.appendChild(activeSpan);
+            }
+
+            if (currentPhase === 'write') {
+                const caret = document.createElement('span');
+                caret.className = 'ink-caret';
+                paperWordsArea.appendChild(caret);
+            }
+
+            // Auto scroll paper down
+            const paperDom = document.getElementById('paperDomElement');
+            paperDom.scrollTop = paperDom.scrollHeight;
+        }
+
+        // Core rule: Backspace does NOT delete characters. It strikes through the active/last word!
+        function strikeOutCurrentOrLastWord() {
+            if (currentPhase !== 'write') return;
+
+            if (currentWordBuffer.trim().length > 0) {
+                tokens.push({
+                    text: currentWordBuffer.trim(),
+                    struck: true,
+                    isNewline: false
+                });
+                currentWordBuffer = '';
+                sound.playInkScratch();
+                renderPaperText();
+                return;
+            }
+
+            // Find the last non-newline, non-struck word and strike it out
+            for (let i = tokens.length - 1; i >= 0; i--) {
+                if (!tokens[i].isNewline && !tokens[i].struck) {
+                    tokens[i].struck = true;
+                    sound.playInkScratch();
+                    renderPaperText();
+                    return;
+                }
+            }
+        }
+
+        function commitActiveWord() {
+            if (currentWordBuffer.trim().length > 0) {
+                tokens.push({
+                    text: currentWordBuffer,
+                    struck: false,
+                    isNewline: false
+                });
+                currentWordBuffer = '';
+            }
+        }
+
+        // Capture keyboard events globally when in write phase
+        window.addEventListener('keydown', (e) => {
+            if (currentPhase !== 'write') return;
+            if (!document.getElementById('theoryModal').classList.contains('hidden')) return;
+
+            // Block Paste (Ctrl+V / Cmd+V)
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+                e.preventDefault();
+                return;
+            }
+
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                e.preventDefault();
+                strikeOutCurrentOrLastWord();
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitActiveWord();
+                tokens.push({ text: '\n', struck: false, isNewline: true });
+                sound.playPenTap();
+                renderPaperText();
+                return;
+            }
+
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (currentWordBuffer.length > 0) {
+                    commitActiveWord();
+                    sound.playPenTap();
+                    renderPaperText();
+                }
+                return;
+            }
+
+            // Printable single characters
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                currentWordBuffer += e.key;
+                sound.playPenTap();
+                renderPaperText();
+            }
+        });
+
+        // Mobile fallback via hidden textarea input event
+        hiddenInput.addEventListener('input', (e) => {
+            if (currentPhase !== 'write') return;
+            const val = hiddenInput.value;
+            if (val.length > 0) {
+                for (const ch of val) {
+                    if (ch === ' ') {
+                        commitActiveWord();
+                    } else if (ch === '\n') {
+                        commitActiveWord();
+                        tokens.push({ text: '\n', struck: false, isNewline: true });
+                    } else {
+                        currentWordBuffer += ch;
+                    }
+                }
+                sound.playPenTap();
+                hiddenInput.value = '';
+                renderPaperText();
+            }
+        });
+
+        document.getElementById('strikeLastWordBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            strikeOutCurrentOrLastWord();
+            focusHiddenInput();
+        });
+
+        // Sample Letter Loader for quick demonstration
+        document.getElementById('loadSampleBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (currentPhase !== 'write') return;
+            tokens = [
+                { text: 'Я', struck: false },
+                { text: 'устал', struck: false },
+                { text: 'постоянно', struck: false },
+                { text: 'прокручивать', struck: false },
+                { text: 'этот', struck: false },
+                { text: 'разговор', struck: false },
+                { text: 'в', struck: false },
+                { text: 'голове', struck: false },
+                { text: 'каждую', struck: false },
+                { text: 'ночь.', struck: false },
+                { isNewline: true },
+                { text: 'Мне', struck: false },
+                { text: 'кажется', struck: true },
+                { text: 'казалось,', struck: false },
+                { text: 'что', struck: false },
+                { text: 'я', struck: false },
+                { text: 'должен', struck: false },
+                { text: 'был', struck: false },
+                { text: 'ответить', struck: false },
+                { text: 'иначе,', struck: false },
+                { text: 'но', struck: false },
+                { text: 'правда', struck: false },
+                { text: 'в', struck: false },
+                { text: 'том,', struck: false },
+                { text: 'что', struck: false },
+                { text: 'прошлое', struck: false },
+                { text: 'уже', struck: false },
+                { text: 'не', struck: false },
+                { text: 'изменить.', struck: false },
+                { isNewline: true },
+                { isNewline: true },
+                { text: 'Я', struck: false },
+                { text: 'злюсь', struck: true },
+                { text: 'очень', struck: false },
+                { text: 'злюсь', struck: false },
+                { text: 'на', struck: false },
+                { text: 'эту', struck: false },
+                { text: 'неопределённость,', struck: false },
+                { text: 'но', struck: false },
+                { text: 'выбираю', struck: false },
+                { text: 'оставить', struck: false },
+                { text: 'все', struck: false },
+                { text: 'невысказанные', struck: false },
+                { text: 'упрёки', struck: false },
+                { text: 'и', struck: false },
+                { text: 'тревогу', struck: false },
+                { text: 'на', struck: false },
+                { text: 'этой', struck: false },
+                { text: 'бумаге.', struck: false },
+                { isNewline: true },
+                { text: 'Пусть', struck: false },
+                { text: 'огонь', struck: false },
+                { text: 'заберёт', struck: false },
+                { text: 'этот', struck: false },
+                { text: 'груз.', struck: false }
+            ];
+            currentWordBuffer = '';
+            sound.playInkScratch();
+            renderPaperText();
+        });
+
+        renderPaperText();
+
+        /********************************************************************
+         * 3. STIMULUS CONTROL 15-MINUTE TIMER
+         ********************************************************************/
+        let remainingSeconds = 15 * 60;
+        let timerPaused = false;
+        const timerDisplay = document.getElementById('timerDisplay');
+        const timerToggleBtn = document.getElementById('timerToggleBtn');
+
+        function updateTimerUI() {
+            const m = Math.floor(remainingSeconds / 60).toString().padStart(2, '0');
+            const s = (remainingSeconds % 60).toString().padStart(2, '0');
+            timerDisplay.textContent = `${m}:${s}`;
+            if (remainingSeconds <= 60) {
+                timerDisplay.classList.add('text-amber-400');
+            }
+        }
+
+        const timerInterval = setInterval(() => {
+            if (currentPhase !== 'write' || timerPaused) return;
+            if (remainingSeconds > 0) {
+                remainingSeconds--;
+                updateTimerUI();
+            } else {
+                // Time is up! Enforce Steve de Shazer's boundary -> go to burning phase
+                transitionToBurnPhase();
+            }
+        }, 1000);
+
+        timerToggleBtn.addEventListener('click', () => {
+            timerPaused = !timerPaused;
+            timerToggleBtn.textContent = timerPaused ? 'Старт' : 'Пауза';
+            timerDisplay.classList.toggle('opacity-50', timerPaused);
+        });
+
+        /********************************************************************
+         * 4. REALISTIC CELLULAR AUTOMATA PAPER BURN & TILT PHYSICS ENGINE
+         *    (ULTRA-FAST 60 FPS PIXEL BUFFER + SPRITE STAMP ARCHITECTURE)
+         ********************************************************************/
+        const burnCanvas = document.getElementById('burnCanvas');
+        const ctx = burnCanvas.getContext('2d', { alpha: true });
+        const lighterCanvas = document.getElementById('lighterCursorCanvas');
+        const lCtx = lighterCanvas.getContext('2d', { alpha: true });
+
+        // Paper logical dimensions in simulation (divisible by 3 for 1:3 grid mapping)
+        const PAPER_W = 540;
+        const PAPER_H = 684;
+
+        // Cellular grid resolution (180x228 -> 1 cell = 3x3 pixels)
+        const GRID_W = 180;
+        const GRID_H = 228;
+        const CELL_W = PAPER_W / GRID_W; // 3px
+        const CELL_H = PAPER_H / GRID_H; // 3px
+
+        // Cell arrays
+        // fuel: 1.0 (fresh paper) -> 0.0 (completely disintegrated ash)
+        // heat: 0.0 (ambient) -> 1.0+ (ignition & active flame)
+        // noise: precomputed organic fiber resistance so fire edges look ragged
+        let cellFuel = new Float32Array(GRID_W * GRID_H);
+        let cellHeat = new Float32Array(GRID_W * GRID_H);
+        let nextHeat = new Float32Array(GRID_W * GRID_H);
+        let cellNoise = new Float32Array(GRID_W * GRID_H);
+
+        // Offscreen canvas holding the crisp original paper + handwritten words + ink strikethroughs
+        const paperSourceCanvas = document.createElement('canvas');
+        paperSourceCanvas.width = PAPER_W;
+        paperSourceCanvas.height = PAPER_H;
+        const pCtx = paperSourceCanvas.getContext('2d');
+
+        // Offscreen canvas holding the charred version (dark charcoal paper + faint silver-ash letters!)
+        const charredSourceCanvas = document.createElement('canvas');
+        charredSourceCanvas.width = PAPER_W;
+        charredSourceCanvas.height = PAPER_H;
+        const cCtx = charredSourceCanvas.getContext('2d');
+
+        // Offscreen composited paper layer updated via direct Uint32Array ImageData
+        const paperCompositeCanvas = document.createElement('canvas');
+        paperCompositeCanvas.width = PAPER_W;
+        paperCompositeCanvas.height = PAPER_H;
+        const compCtx = paperCompositeCanvas.getContext('2d');
+
+        // Cached pixel buffers for O(1) per-pixel composition (Zero drawImage/fillRect in loop!)
+        let freshPixels32 = null;
+        let charredPixels32 = null;
+        let compImageData = compCtx.createImageData(PAPER_W, PAPER_H);
+        let compPixels32 = new Uint32Array(compImageData.data.buffer);
+
+        // Pre-rendered 64x64 sprites to completely avoid per-frame createRadialGradient & shadowBlur
+        const flameSpriteCanvas = document.createElement('canvas');
+        flameSpriteCanvas.width = 64;
+        flameSpriteCanvas.height = 64;
+
+        const smokeSpriteCanvas = document.createElement('canvas');
+        smokeSpriteCanvas.width = 64;
+        smokeSpriteCanvas.height = 64;
+
+        const lighterGlowSprite = document.createElement('canvas');
+        lighterGlowSprite.width = 96;
+        lighterGlowSprite.height = 96;
+
+        function initSprites() {
+            // 1. Flame Sprite
+            const fCtx = flameSpriteCanvas.getContext('2d');
+            const fg = fCtx.createRadialGradient(32, 32, 2, 32, 32, 30);
+            fg.addColorStop(0, 'rgba(255, 250, 210, 0.95)');
+            fg.addColorStop(0.4, 'rgba(251, 146, 60, 0.75)');
+            fg.addColorStop(0.75, 'rgba(220, 38, 38, 0.3)');
+            fg.addColorStop(1, 'rgba(180, 20, 10, 0)');
+            fCtx.fillStyle = fg;
+            fCtx.fillRect(0, 0, 64, 64);
+
+            // 2. Smoke Sprite
+            const sCtx = smokeSpriteCanvas.getContext('2d');
+            const sg = sCtx.createRadialGradient(32, 32, 4, 32, 32, 30);
+            sg.addColorStop(0, 'rgba(70, 65, 60, 0.26)');
+            sg.addColorStop(0.6, 'rgba(50, 46, 42, 0.12)');
+            sg.addColorStop(1, 'rgba(30, 28, 25, 0)');
+            sCtx.fillStyle = sg;
+            sCtx.fillRect(0, 0, 64, 64);
+
+            // 3. Lighter Glow Sprite
+            const lgCtx = lighterGlowSprite.getContext('2d');
+            const lgg = lgCtx.createRadialGradient(48, 48, 2, 48, 48, 46);
+            lgg.addColorStop(0, 'rgba(251, 146, 60, 0.5)');
+            lgg.addColorStop(0.5, 'rgba(234, 88, 12, 0.2)');
+            lgg.addColorStop(1, 'rgba(234, 88, 12, 0)');
+            lgCtx.fillStyle = lgg;
+            lgCtx.fillRect(0, 0, 96, 96);
+        }
+        initSprites();
+
+        // Interactive state in Burn Mode
+        let paperAngleDeg = 0; // -65 to +65 degrees
+        let interactionTool = 'lighter'; // 'lighter' | 'tilt'
+        let pointerX = window.innerWidth / 2;
+        let pointerY = window.innerHeight / 2;
+        let isPointerDown = false;
+        let isRightMouseDragging = false;
+        let dragStartAngle = 0;
+        let dragStartX = 0;
+        let closureTriggered = false;
+
+        // Fixed-cap Particle Pools (Zero GC pauses)
+        const MAX_FIRE_PARTICLES = 110;
+        const MAX_SMOKE_PARTICLES = 55;
+        const MAX_ASH_PARTICLES = 85;
+        let fireParticles = [];
+        let ashParticles = [];
+        let smokeParticles = [];
+
+        // Simple 2D value noise for realistic irregular paper fibers
+        function pseudoNoise(x, y) {
+            const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+            return n - Math.floor(n);
+        }
+
+        function smoothNoise(x, y) {
+            const ix = Math.floor(x), iy = Math.floor(y);
+            const fx = x - ix, fy = y - iy;
+            const a = pseudoNoise(ix, iy);
+            const b = pseudoNoise(ix + 1, iy);
+            const c = pseudoNoise(ix, iy + 1);
+            const d = pseudoNoise(ix + 1, iy + 1);
+            const ux = fx * fx * (3 - 2 * fx);
+            const uy = fy * fy * (3 - 2 * fy);
+            return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy;
+        }
+
+        // Bake the user's written text (with strikethroughs) onto both Unburned and Charred textures
+        function bakePaperTextures() {
+            commitActiveWord();
+            if (!hasAnyContent()) {
+                // If user didn't write anything, put a symbolic default thought
+                tokens = [
+                    { text: 'Все', struck: false },
+                    { text: 'невысказанные', struck: false },
+                    { text: 'мысли', struck: false },
+                    { text: 'и', struck: false },
+                    { text: 'напряжение', struck: false },
+                    { text: 'этого', struck: false },
+                    { text: 'дня...', struck: false }
+                ];
+            }
+
+            // 1. Draw Fresh Paper Texture
+            pCtx.fillStyle = '#f4efe6';
+            pCtx.fillRect(0, 0, PAPER_W, PAPER_H);
+
+            // Subtle warm vignette on paper edges
+            const grad = pCtx.createRadialGradient(PAPER_W / 2, PAPER_H / 2, 100, PAPER_W / 2, PAPER_H / 2, 420);
+            grad.addColorStop(0, 'rgba(255, 252, 245, 0)');
+            grad.addColorStop(1, 'rgba(165, 140, 110, 0.25)');
+            pCtx.fillStyle = grad;
+            pCtx.fillRect(0, 0, PAPER_W, PAPER_H);
+
+            // Ruled horizontal lines
+            pCtx.strokeStyle = 'rgba(175, 160, 140, 0.28)';
+            pCtx.lineWidth = 1;
+            for (let y = 76; y < PAPER_H - 30; y += 32) {
+                pCtx.beginPath();
+                pCtx.moveTo(32, y);
+                pCtx.lineTo(PAPER_W - 32, y);
+                pCtx.stroke();
+            }
+
+            // 2. Draw Charred Carbon Texture (So text DOES NOT disappear immediately when burned!)
+            cCtx.fillStyle = '#141210';
+            cCtx.fillRect(0, 0, PAPER_W, PAPER_H);
+            // Carbon fiber grain
+            for (let i = 0; i < 3500; i++) {
+                cCtx.fillStyle = Math.random() > 0.5 ? 'rgba(40,35,30,0.25)' : 'rgba(5,5,5,0.35)';
+                cCtx.fillRect(Math.random() * PAPER_W, Math.random() * PAPER_H, 2, 2);
+            }
+
+            // Header on both canvases
+            pCtx.font = 'italic 13px "Cormorant Garamond", serif';
+            pCtx.fillStyle = '#6b635b';
+            pCtx.fillText(paperDateLabel.textContent, 38, 44);
+
+            cCtx.font = 'italic 13px "Cormorant Garamond", serif';
+            cCtx.fillStyle = 'rgba(150, 140, 130, 0.35)';
+            cCtx.fillText(paperDateLabel.textContent, 38, 44);
+
+            // Layout and draw every word token & strikethrough on both Fresh & Charred canvases
+            const fontStr = '600 25px "Caveat", cursive';
+            pCtx.font = fontStr;
+            cCtx.font = fontStr;
+
+            let cursorX = 38;
+            let cursorY = 73;
+            const lineHeight = 32;
+            const maxRight = PAPER_W - 38;
+
+            tokens.forEach((tok) => {
+                if (tok.isNewline) {
+                    cursorX = 38;
+                    cursorY += lineHeight;
+                    return;
+                }
+                const wordWidth = pCtx.measureText(tok.text).width;
+                if (cursorX + wordWidth > maxRight) {
+                    cursorX = 38;
+                    cursorY += lineHeight;
+                }
+                if (cursorY > PAPER_H - 28) return; // fits on page
+
+                // Draw on Fresh Paper
+                pCtx.fillStyle = tok.struck ? 'rgba(30, 36, 43, 0.55)' : '#1a2026';
+                pCtx.fillText(tok.text, cursorX, cursorY);
+
+                // Draw on Charred Paper (Silvery/ashy carbonized ink remains visible inside the char!)
+                cCtx.fillStyle = tok.struck ? 'rgba(140, 130, 120, 0.48)' : 'rgba(190, 180, 165, 0.65)';
+                cCtx.fillText(tok.text, cursorX, cursorY);
+
+                // If word is struck out, draw double ink scratch line
+                if (tok.struck) {
+                    // Fresh paper scratch
+                    pCtx.strokeStyle = '#15191f';
+                    pCtx.lineWidth = 2.4;
+                    pCtx.beginPath();
+                    pCtx.moveTo(cursorX - 3, cursorY - 7);
+                    pCtx.lineTo(cursorX + wordWidth + 4, cursorY - 9);
+                    pCtx.stroke();
+
+                    // Charred paper scratch
+                    cCtx.strokeStyle = 'rgba(195, 185, 170, 0.6)';
+                    cCtx.lineWidth = 2.0;
+                    cCtx.beginPath();
+                    cCtx.moveTo(cursorX - 3, cursorY - 7);
+                    cCtx.lineTo(cursorX + wordWidth + 4, cursorY - 9);
+                    cCtx.stroke();
+                }
+
+                cursorX += wordWidth + 9;
+            });
+
+            // Cache raw 32-bit pixel arrays once for ultra-fast O(1) per-frame blending
+            freshPixels32 = new Uint32Array(pCtx.getImageData(0, 0, PAPER_W, PAPER_H).data.buffer);
+            charredPixels32 = new Uint32Array(cCtx.getImageData(0, 0, PAPER_W, PAPER_H).data.buffer);
+            compPixels32.set(freshPixels32);
+            compCtx.putImageData(compImageData, 0, 0);
+
+            // Initialize cellular grid
+            for (let y = 0; y < GRID_H; y++) {
+                for (let x = 0; x < GRID_W; x++) {
+                    const idx = y * GRID_W + x;
+                    cellFuel[idx] = 1.0;
+                    cellHeat[idx] = 0.0;
+                    nextHeat[idx] = 0.0;
+                    cellNoise[idx] = 0.65 + 0.7 * smoothNoise(x * 0.14, y * 0.14);
+                }
+            }
+
+            fireParticles.length = 0;
+            smokeParticles.length = 0;
+            ashParticles.length = 0;
+        }
+
+        // Convert screen mouse coordinates to local paper coordinates (accounting for paper rotation!)
+        function screenToPaperCoords(sx, sy) {
+            const rect = burnCanvas.getBoundingClientRect();
+            const scaleX = burnCanvas.width / rect.width;
+            const scaleY = burnCanvas.height / rect.height;
+
+            const cx = (sx - rect.left) * scaleX - burnCanvas.width / 2;
+            const cy = (sy - rect.top) * scaleY - burnCanvas.height / 2;
+
+            const rad = -paperAngleDeg * Math.PI / 180;
+            const rx = cx * Math.cos(rad) - cy * Math.sin(rad);
+            const ry = cx * Math.sin(rad) + cy * Math.cos(rad);
+
+            return {
+                x: rx + PAPER_W / 2,
+                y: ry + PAPER_H / 2
+            };
+        }
+
+        // Step the cellular automata fire & heat convection physics
+        // Calibrated so a full sheet burns organically over ~30-45 seconds at 60 FPS
+        function stepBurnPhysics(dt) {
+            let burningCellsCount = 0;
+            let charredOrAshCount = 0;
+
+            // 1. Apply Lighter Flame Heat if user is holding the lighter near the paper
+            const isApplyingLighter = isPointerDown && interactionTool === 'lighter' && !isRightMouseDragging;
+            if (isApplyingLighter) {
+                const flameTipScreenX = pointerX;
+                const flameTipScreenY = pointerY - 28;
+                const localPt = screenToPaperCoords(flameTipScreenX, flameTipScreenY);
+
+                const gx = Math.floor(localPt.x / CELL_W);
+                const gy = Math.floor(localPt.y / CELL_H);
+                const radius = 9;
+
+                for (let dy = -radius; dy <= radius; dy++) {
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        const nx = gx + dx;
+                        const ny = gy + dy;
+                        if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H) {
+                            const d2 = dx * dx + dy * dy;
+                            if (d2 <= radius * radius) {
+                                const dist = Math.sqrt(d2);
+                                const idx = ny * GRID_W + nx;
+                                const isNearEdge = (nx < 6 || nx > GRID_W - 7 || ny < 6 || ny > GRID_H - 7);
+                                const edgeBoost = isNearEdge ? 1.35 : 1.0;
+                                const falloff = Math.pow(1 - dist / radius, 1.25);
+                                // Fast responsive ignition (~0.25-0.35s) so user can quickly light any spot or sweep across edges
+                                cellHeat[idx] = Math.min(1.6, cellHeat[idx] + dt * 3.2 * falloff * edgeBoost);
+                            }
+                        }
+                    }
+                }
+
+                // Visual spark/flame feedback right at the lighter contact point on the paper
+                if (gx >= 0 && gx < GRID_W && gy >= 0 && gy < GRID_H && Math.random() < 0.45) {
+                    spawnFlameParticle(localPt.x, localPt.y);
+                }
+            }
+
+            // 2. Compute Gravity / Buoyancy Vector in Paper's Local Space
+            const rad = paperAngleDeg * Math.PI / 180;
+            const upDirX = -Math.sin(rad);
+            const upDirY = -Math.cos(rad);
+
+            nextHeat.set(cellHeat);
+
+            for (let y = 0; y < GRID_H; y++) {
+                const rowOffset = y * GRID_W;
+                for (let x = 0; x < GRID_W; x++) {
+                    const idx = rowOffset + x;
+                    const fuel = cellFuel[idx];
+                    const heat = cellHeat[idx];
+
+                    if (fuel < 0.78) charredOrAshCount++;
+
+                    if (heat <= 0.001 && fuel >= 0.99) continue; // Fast skip untouched cold cells
+
+                    // If cell is actively burning (heat >= 0.65 and still has fuel > 0.08)
+                    if (heat >= 0.65 && fuel > 0.08) {
+                        burningCellsCount++;
+
+                        // Self-sustaining combustion consumes fuel over ~30-45s across the sheet
+                        const burnRate = (0.11 + 0.045 * cellNoise[idx]) * dt;
+                        cellFuel[idx] = Math.max(0, fuel - burnRate);
+                        nextHeat[idx] = Math.min(1.5, heat + dt * 0.48);
+
+                        // Unrolled 4-cardinal + 4-diagonal neighbor heat transfer biased by paper tilt
+                        const yMin = y > 0 ? y - 1 : 0;
+                        const yMax = y < GRID_H - 1 ? y + 1 : GRID_H - 1;
+                        const xMin = x > 0 ? x - 1 : 0;
+                        const xMax = x < GRID_W - 1 ? x + 1 : GRID_W - 1;
+
+                        for (let ny = yMin; ny <= yMax; ny++) {
+                            const nRow = ny * GRID_W;
+                            for (let nx = xMin; nx <= xMax; nx++) {
+                                if (nx === x && ny === y) continue;
+                                const nIdx = nRow + nx;
+                                if (cellFuel[nIdx] > 0.08) {
+                                    const dx = nx - x;
+                                    const dy = ny - y;
+                                    const invDist = (dx !== 0 && dy !== 0) ? 0.7071 : 1.0;
+                                    const dotUp = (dx * upDirX + dy * upDirY) * invDist;
+                                    const tiltMultiplier = 1.0 + Math.max(-0.45, dotUp * 1.7);
+                                    const transfer = 0.34 * invDist * tiltMultiplier * cellNoise[nIdx] * dt;
+                                    const nh = nextHeat[nIdx] + transfer;
+                                    nextHeat[nIdx] = nh < 1.5 ? nh : 1.5;
+                                }
+                            }
+                        }
+
+                        // Spawn visual flame & smoke particles along active flame front (capped pool)
+                        if (Math.random() < 0.045) {
+                            spawnFlameParticle(x * CELL_W, y * CELL_H);
+                        }
+                    } else {
+                        // Cooling down when fuel is exhausted or sub-ignition pre-heat
+                        if (fuel <= 0.08) {
+                            nextHeat[idx] = Math.max(0, heat - dt * 0.95);
+                            if (heat > 0.35 && Math.random() < 0.018) {
+                                spawnAshParticle(x * CELL_W, y * CELL_H);
+                            }
+                        } else if (heat > 0) {
+                            nextHeat[idx] = Math.max(0, heat - dt * 0.08);
+                        }
+                    }
+                }
+            }
+
+            cellHeat.set(nextHeat);
+
+            // Update UI progress & soundscape
+            const totalCells = GRID_W * GRID_H;
+            const burnPercent = Math.min(100, Math.round((charredOrAshCount / totalCells) * 100));
+            document.getElementById('burnPercentText').textContent = `${burnPercent}%`;
+
+            const activeFlameRatio = burningCellsCount / (totalCells * 0.14);
+            sound.updateFireIntensity(activeFlameRatio, isApplyingLighter);
+
+            // Ambient tabletop glow
+            const glowEl = document.getElementById('ambientFireGlow');
+            glowEl.style.opacity = Math.min(1, activeFlameRatio * 1.5 + (isApplyingLighter ? 0.35 : 0));
+
+            // Check for ritual completion (>95% burned and flames dying down)
+            if (burnPercent >= 95 && burningCellsCount < 18 && !closureTriggered) {
+                closureTriggered = true;
+                setTimeout(() => {
+                    triggerClosurePhase();
+                }, 4000);
+            }
+        }
+
+        function spawnFlameParticle(px, py) {
+            if (fireParticles.length >= MAX_FIRE_PARTICLES) return;
+            const rad = paperAngleDeg * Math.PI / 180;
+            const lx = px - PAPER_W / 2;
+            const ly = py - PAPER_H / 2;
+            const wx = burnCanvas.width / 2 + (lx * Math.cos(rad) - ly * Math.sin(rad));
+            const wy = burnCanvas.height / 2 + (lx * Math.sin(rad) + ly * Math.cos(rad));
+
+            fireParticles.push({
+                x: wx + (Math.random() - 0.5) * 8,
+                y: wy + (Math.random() - 0.5) * 8,
+                vx: (Math.random() - 0.5) * 20,
+                vy: -42 - Math.random() * 58,
+                size: 16 + Math.random() * 20,
+                life: 1.0,
+                decay: 1.5 + Math.random() * 1.2
+            });
+
+            if (smokeParticles.length < MAX_SMOKE_PARTICLES && Math.random() < 0.3) {
+                smokeParticles.push({
+                    x: wx,
+                    y: wy - 12,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: -26 - Math.random() * 26,
+                    size: 26 + Math.random() * 26,
+                    life: 1.0,
+                    decay: 0.55 + Math.random() * 0.35
+                });
+            }
+        }
+
+        function spawnAshParticle(px, py) {
+            if (ashParticles.length >= MAX_ASH_PARTICLES) return;
+            const rad = paperAngleDeg * Math.PI / 180;
+            const lx = px - PAPER_W / 2;
+            const ly = py - PAPER_H / 2;
+            const wx = burnCanvas.width / 2 + (lx * Math.cos(rad) - ly * Math.sin(rad));
+            const wy = burnCanvas.height / 2 + (lx * Math.sin(rad) + ly * Math.cos(rad));
+
+            ashParticles.push({
+                x: wx,
+                y: wy,
+                vx: (Math.random() - 0.5) * 30,
+                vy: -15 + Math.random() * 38,
+                size: 3 + Math.random() * 4,
+                life: 1.0,
+                decay: 0.35 + Math.random() * 0.3,
+                ember: Math.random() < 0.35
+            });
+        }
+
+        // Ultra-fast Direct Pixel Buffer Composition (Replaces 30,000+ Canvas draw calls with 1 putImageData!)
+        function renderPaperComposite() {
+            if (!freshPixels32) return;
+
+            for (let gy = 0; gy < GRID_H; gy++) {
+                const gRow = gy * GRID_W;
+                const pyStart = gy * 3;
+
+                for (let gx = 0; gx < GRID_W; gx++) {
+                    const idx = gRow + gx;
+                    const fuel = cellFuel[idx];
+                    const heat = cellHeat[idx];
+                    const pxStart = gx * 3;
+
+                    // Fast path: Untouched paper cell
+                    if (fuel >= 0.98 && heat <= 0.1) {
+                        continue;
+                    }
+
+                    // State 3: Completely disintegrated into ash (transparent pixels)
+                    if (fuel <= 0.08) {
+                        for (let dy = 0; dy < 3; dy++) {
+                            const pRow = (pyStart + dy) * PAPER_W + pxStart;
+                            compPixels32[pRow] = 0;
+                            compPixels32[pRow + 1] = 0;
+                            compPixels32[pRow + 2] = 0;
+                        }
+                        continue;
+                    }
+
+                    // State 2: Charred black paper (with preserved silver-ash ink) + Glowing ember edge
+                    if (fuel < 0.78) {
+                        const isEmber = heat > 0.6;
+                        const emberWeight = isEmber ? Math.min(0.88, (heat - 0.55) * 0.95) : 0;
+                        const er = 255;
+                        const eg = fuel > 0.42 ? 148 : 55;
+                        const eb = 16;
+
+                        for (let dy = 0; dy < 3; dy++) {
+                            const pRow = (pyStart + dy) * PAPER_W + pxStart;
+                            for (let dx = 0; dx < 3; dx++) {
+                                const pIdx = pRow + dx;
+                                const charCol = charredPixels32[pIdx];
+                                if (!isEmber) {
+                                    compPixels32[pIdx] = charCol;
+                                } else {
+                                    const r = (charCol & 0xff) * (1 - emberWeight) + er * emberWeight;
+                                    const g = ((charCol >> 8) & 0xff) * (1 - emberWeight) + eg * emberWeight;
+                                    const b = ((charCol >> 16) & 0xff) * (1 - emberWeight) + eb * emberWeight;
+                                    compPixels32[pIdx] = (255 << 24) | (b << 16) | (g << 8) | r;
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    // State 1: Pre-heating / Browning sepia halo before catching fire
+                    const scorch = Math.min(0.82, Math.max(1 - fuel, heat * 0.9)) * 0.75;
+                    const invScorch = 1 - scorch;
+                    for (let dy = 0; dy < 3; dy++) {
+                        const pRow = (pyStart + dy) * PAPER_W + pxStart;
+                        for (let dx = 0; dx < 3; dx++) {
+                            const pIdx = pRow + dx;
+                            const orig = freshPixels32[pIdx];
+                            const r = (orig & 0xff) * invScorch + 88 * scorch;
+                            const g = ((orig >> 8) & 0xff) * invScorch + 42 * scorch;
+                            const b = ((orig >> 16) & 0xff) * invScorch + 12 * scorch;
+                            compPixels32[pIdx] = (255 << 24) | (b << 16) | (g << 8) | r;
+                        }
+                    }
+                }
+            }
+
+            compCtx.putImageData(compImageData, 0, 0);
+        }
+
+        // Main Animation Loop for Phase 2 (Burning Stage - 60 FPS Hardware Accelerated)
+        let lastFrameTime = performance.now();
+
+        function animateBurningStage(now) {
+            const dt = Math.min(0.04, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+
+            if (currentPhase === 'burn') {
+                stepBurnPhysics(dt);
+                renderPaperComposite();
+
+                ctx.clearRect(0, 0, burnCanvas.width, burnCanvas.height);
+
+                // Draw rotated paper in center of viewport (No expensive shadowBlur!)
+                ctx.save();
+                ctx.translate(burnCanvas.width / 2, burnCanvas.height / 2);
+                ctx.rotate(paperAngleDeg * Math.PI / 180);
+                ctx.drawImage(paperCompositeCanvas, -PAPER_W / 2, -PAPER_H / 2);
+                ctx.restore();
+
+                // Render rising smoke particles using pre-rendered smoke sprite
+                for (let i = smokeParticles.length - 1; i >= 0; i--) {
+                    const p = smokeParticles[i];
+                    p.x += p.vx * dt;
+                    p.y += p.vy * dt;
+                    p.size += 16 * dt;
+                    p.life -= p.decay * dt;
+                    if (p.life <= 0) {
+                        smokeParticles[i] = smokeParticles[smokeParticles.length - 1];
+                        smokeParticles.pop();
+                        continue;
+                    }
+                    ctx.globalAlpha = p.life;
+                    ctx.drawImage(smokeSpriteCanvas, p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
+                }
+
+                // Render additive flickering fire tongues using pre-rendered flame sprite
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                for (let i = fireParticles.length - 1; i >= 0; i--) {
+                    const p = fireParticles[i];
+                    p.x += p.vx * dt + Math.sin(now * 0.015 + i) * 0.5;
+                    p.y += p.vy * dt;
+                    p.life -= p.decay * dt;
+                    if (p.life <= 0) {
+                        fireParticles[i] = fireParticles[fireParticles.length - 1];
+                        fireParticles.pop();
+                        continue;
+                    }
+                    const r = p.size * p.life;
+                    ctx.globalAlpha = p.life;
+                    ctx.drawImage(flameSpriteCanvas, p.x - r, p.y - r, r * 2, r * 2);
+                }
+                ctx.restore();
+                ctx.globalAlpha = 1.0;
+
+                // Render drifting ash flakes
+                for (let i = ashParticles.length - 1; i >= 0; i--) {
+                    const p = ashParticles[i];
+                    p.x += p.vx * dt + Math.cos(now * 0.004 + i) * 0.4;
+                    p.y += p.vy * dt;
+                    p.life -= p.decay * dt;
+                    if (p.life <= 0) {
+                        ashParticles[i] = ashParticles[ashParticles.length - 1];
+                        ashParticles.pop();
+                        continue;
+                    }
+                    ctx.fillStyle = p.ember && p.life > 0.45
+                        ? `rgba(249, 115, 22, ${p.life})`
+                        : `rgba(90, 85, 80, ${p.life * 0.85})`;
+                    ctx.fillRect(p.x, p.y, p.size, p.size * 0.7);
+                }
+
+                // Render Interactive Lighter Cursor
+                renderLighterCursor(now);
+            }
+
+            requestAnimationFrame(animateBurningStage);
+        }
+
+        // Draw realistic brass lighter + flickering dual-core flame at mouse/touch position
+        function renderLighterCursor(now) {
+            lCtx.clearRect(0, 0, lighterCanvas.width, lighterCanvas.height);
+            if (currentPhase !== 'burn') return;
+
+            if (interactionTool === 'tilt' || isRightMouseDragging) {
+                return;
+            }
+
+            const x = pointerX;
+            const y = pointerY;
+            const isHolding = isPointerDown;
+
+            lCtx.save();
+            lCtx.translate(x, y);
+            lCtx.rotate(isHolding ? -0.18 : -0.06);
+
+            // 1. Flickering Flame above the nozzle
+            const flickerX = Math.sin(now * 0.028) * 2.5;
+            const flameHeight = isHolding ? 44 + Math.sin(now * 0.04) * 5 : 30 + Math.sin(now * 0.025) * 3;
+            const flameWidth = isHolding ? 15 : 11;
+
+            // Cached warm glow sprite
+            lCtx.drawImage(lighterGlowSprite, -48, -72);
+
+            // Outer orange-yellow teardrop flame
+            lCtx.fillStyle = '#fb923c';
+            lCtx.beginPath();
+            lCtx.moveTo(-flameWidth * 0.55, -4);
+            lCtx.quadraticCurveTo(-flameWidth, -flameHeight * 0.45, flickerX, -flameHeight);
+            lCtx.quadraticCurveTo(flameWidth, -flameHeight * 0.45, flameWidth * 0.55, -4);
+            lCtx.closePath();
+            lCtx.fill();
+
+            // Inner white-hot core
+            lCtx.fillStyle = '#fef08a';
+            lCtx.beginPath();
+            lCtx.moveTo(-flameWidth * 0.28, -5);
+            lCtx.quadraticCurveTo(-flameWidth * 0.45, -flameHeight * 0.38, flickerX * 0.5, -flameHeight * 0.68);
+            lCtx.quadraticCurveTo(flameWidth * 0.45, -flameHeight * 0.38, flameWidth * 0.28, -5);
+            lCtx.closePath();
+            lCtx.fill();
+
+            // 2. Metallic Zippo Chimney & Flint Wheel
+            lCtx.fillStyle = '#a8a29e';
+            lCtx.fillRect(-7, -5, 14, 11);
+            lCtx.fillStyle = '#292524';
+            for (let hx = -4; hx <= 4; hx += 4) {
+                lCtx.fillRect(hx - 1, -1, 2, 2);
+            }
+
+            // Flint wheel
+            lCtx.fillStyle = '#57534e';
+            lCtx.beginPath();
+            lCtx.arc(9, 2, 4.5, 0, Math.PI * 2);
+            lCtx.fill();
+
+            // 3. Brushed Brass Lighter Case
+            lCtx.fillStyle = '#d97706';
+            lCtx.beginPath();
+            lCtx.roundRect(-12, 6, 26, 38, 4);
+            lCtx.fill();
+            lCtx.strokeStyle = 'rgba(255,255,255,0.28)';
+            lCtx.lineWidth = 1;
+            lCtx.stroke();
+
+            // Open Zippo Lid tilted to the left
+            lCtx.save();
+            lCtx.translate(-12, 6);
+            lCtx.rotate(-2.15);
+            lCtx.fillStyle = '#b45309';
+            lCtx.beginPath();
+            lCtx.roundRect(0, -18, 25, 18, 3);
+            lCtx.fill();
+            lCtx.restore();
+
+            lCtx.restore();
+        }
+
+        /********************************************************************
+         * 5. VIEWPORT RESIZING, CONTROLS & PHASE TRANSITIONS
+         ********************************************************************/
+        function resizeCanvases() {
+            const viewport = document.getElementById('burnViewport');
+            burnCanvas.width = Math.max(window.innerWidth, 700);
+            burnCanvas.height = Math.max(window.innerHeight - 70, 740);
+            lighterCanvas.width = window.innerWidth;
+            lighterCanvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+        resizeCanvases();
+
+        function setPaperAngle(deg) {
+            paperAngleDeg = Math.max(-65, Math.min(65, Math.round(deg)));
+            document.getElementById('tiltAngleSlider').value = paperAngleDeg;
+            document.getElementById('tiltAngleLabel').textContent = `${paperAngleDeg > 0 ? '+' : ''}${paperAngleDeg}°`;
+        }
+
+        function updateCursorClasses() {
+            const viewport = document.getElementById('burnViewport');
+            if (currentPhase !== 'burn') {
+                viewport.className = 'relative w-full h-full flex items-center justify-center overflow-hidden';
+                return;
+            }
+            if (interactionTool === 'lighter' && !isRightMouseDragging) {
+                viewport.className = 'relative w-full h-full flex items-center justify-center overflow-hidden cursor-lighter-active';
+            } else {
+                viewport.className = 'relative w-full h-full flex items-center justify-center overflow-hidden ' +
+                    (isPointerDown || isRightMouseDragging ? 'cursor-grabbing-paper' : 'cursor-grab-paper');
+            }
+        }
+
+        function transitionToBurnPhase() {
+            if (currentPhase === 'burn') return;
+            currentPhase = 'burn';
+
+            // Lock writing & bake text onto simulation canvases
+            bakePaperTextures();
+
+            // Update UI Header
+            document.getElementById('phaseBadge').textContent = 'Фаза 2: Сожжение';
+            document.getElementById('phaseBadge').className = 'text-xs px-2 py-0.5 rounded-full bg-orange-950/90 text-amber-300 border border-amber-600/50';
+            document.getElementById('goToBurnBtn').classList.add('hidden');
+            document.getElementById('writingContainer').classList.add('hidden');
+            document.getElementById('burningStage').classList.remove('hidden');
+            lighterCanvas.classList.remove('hidden');
+
+            resizeCanvases();
+            updateCursorClasses();
+
+            // Play Zippo strike & start fire sound engine
+            sound.playLighterClick();
+            sound.startFireLoop();
+        }
+
+        function triggerClosurePhase() {
+            currentPhase = 'closure';
+            lighterCanvas.classList.add('hidden');
+            sound.updateFireIntensity(0, false);
+            document.getElementById('phaseBadge').textContent = 'Фаза 3: Завершение';
+
+            const overlay = document.getElementById('closureOverlay');
+            overlay.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                overlay.classList.remove('opacity-0');
+                overlay.classList.add('opacity-100');
+            });
+        }
+
+        // Mouse & Touch Events for Lighter Ignition and Paper Tilting
+        window.addEventListener('pointermove', (e) => {
+            pointerX = e.clientX;
+            pointerY = e.clientY;
+
+            if (currentPhase === 'burn' && (isRightMouseDragging || (isPointerDown && interactionTool === 'tilt'))) {
+                const deltaX = e.clientX - dragStartX;
+                setPaperAngle(dragStartAngle + deltaX * 0.25);
+            }
+        });
+
+        burnCanvas.addEventListener('pointerdown', (e) => {
+            if (currentPhase !== 'burn') return;
+            pointerX = e.clientX;
+            pointerY = e.clientY;
+
+            if (e.button === 2 || e.shiftKey || interactionTool === 'tilt') {
+                isRightMouseDragging = true;
+                dragStartX = e.clientX;
+                dragStartAngle = paperAngleDeg;
+            } else {
+                isPointerDown = true;
+                sound.playLighterClick();
+            }
+            updateCursorClasses();
+        });
+
+        window.addEventListener('pointerup', () => {
+            isPointerDown = false;
+            isRightMouseDragging = false;
+            updateCursorClasses();
+        });
+
+        // Prevent context menu on right-click so right-click can smoothly tilt paper
+        burnCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Mouse wheel tilts the paper effortlessly while holding the lighter
+        window.addEventListener('wheel', (e) => {
+            if (currentPhase !== 'burn') return;
+            setPaperAngle(paperAngleDeg + (e.deltaY > 0 ? 4 : -4));
+        }, { passive: true });
+
+        // UI Controls bindings
+        document.getElementById('goToBurnBtn').addEventListener('click', transitionToBurnPhase);
+
+        document.getElementById('tiltAngleSlider').addEventListener('input', (e) => {
+            setPaperAngle(parseFloat(e.target.value));
+        });
+
+        document.getElementById('resetTiltBtn').addEventListener('click', () => {
+            setPaperAngle(0);
+        });
+
+        const modeLighterBtn = document.getElementById('modeLighterBtn');
+        const modeTiltBtn = document.getElementById('modeTiltBtn');
+
+        modeLighterBtn.addEventListener('click', () => {
+            interactionTool = 'lighter';
+            modeLighterBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-amber-600/20 text-amber-300 border border-amber-500/40 transition';
+            modeTiltBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-stone-400 hover:text-stone-200 transition';
+            sound.playLighterClick();
+            updateCursorClasses();
+        });
+
+        modeTiltBtn.addEventListener('click', () => {
+            interactionTool = 'tilt';
+            modeTiltBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-amber-600/20 text-amber-300 border border-amber-500/40 transition';
+            modeLighterBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-stone-400 hover:text-stone-200 transition';
+            updateCursorClasses();
+        });
+
+        // Sound toggle button
+        document.getElementById('soundToggleBtn').addEventListener('click', () => {
+            sound.enabled = !sound.enabled;
+            document.getElementById('soundOnIcon').classList.toggle('hidden', !sound.enabled);
+            document.getElementById('soundOffIcon').classList.toggle('hidden', sound.enabled);
+            document.getElementById('soundStatusText').textContent = sound.enabled ? 'Звук вкл' : 'Без звука';
+            if (!sound.enabled && sound.isFireRunning) {
+                sound.updateFireIntensity(0, false);
+            }
+        });
+
+        // Theory Modal
+        const theoryModal = document.getElementById('theoryModal');
+        document.getElementById('theoryModalBtn').addEventListener('click', () => {
+            theoryModal.classList.remove('hidden');
+        });
+        document.getElementById('closeTheoryModalBtn').addEventListener('click', () => {
+            theoryModal.classList.add('hidden');
+        });
+        document.getElementById('closeTheoryBottomBtn').addEventListener('click', () => {
+            theoryModal.classList.add('hidden');
+        });
+
+        // Start a fresh session from Closure Screen
+        document.getElementById('newSessionBtn').addEventListener('click', () => {
+            tokens = [];
+            currentWordBuffer = '';
+            closureTriggered = false;
+            remainingSeconds = 15 * 60;
+            setPaperAngle(0);
+            currentPhase = 'write';
+
+            const overlay = document.getElementById('closureOverlay');
+            overlay.classList.add('opacity-0');
+            setTimeout(() => overlay.classList.add('hidden'), 600);
+
+            document.getElementById('burningStage').classList.add('hidden');
+            document.getElementById('writingContainer').classList.remove('hidden');
+            document.getElementById('goToBurnBtn').classList.remove('hidden');
+            document.getElementById('phaseBadge').textContent = 'Фаза 1: Выгрузка';
+            document.getElementById('phaseBadge').className = 'text-xs px-2 py-0.5 rounded-full bg-stone-800 text-stone-400 border border-stone-700/60';
+            document.getElementById('ambientFireGlow').style.opacity = 0;
+
+            updateTimerUI();
+            renderPaperText();
+            focusHiddenInput();
+        });
+
+        // Start main loop on load
+        window.onload = () => {
+            focusHiddenInput();
+            requestAnimationFrame(animateBurningStage);
+        };
+    </script>
+</body>
+</html>
